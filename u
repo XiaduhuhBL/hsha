@@ -1,0 +1,84 @@
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+local gui = Instance.new("ScreenGui")
+local main = Instance.new("Frame")
+local title = Instance.new("TextLabel")
+local inputBox = Instance.new("TextBox")
+local execButton = Instance.new("TextButton")
+local attachButton = Instance.new("TextButton")
+local status = Instance.new("TextLabel")
+local corner = Instance.new("UICorner")
+
+gui.Name = "FEBYPASS_GabbyDallar"
+gui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+gui.ResetOnSpawn = false
+
+main.Name = "Main"
+main.Parent = gui
+main.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+main.Position = UDim2.new(0.25, 0, 0.25, 0)
+main.Size = UDim2.new(0, 500, 0, 300)
+main.Active = true
+main.Draggable = true
+
+corner.Parent = main
+
+title.Parent = main
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Font = Enum.Font.GothamBlack
+title.Text = "FE BYPASS BY GABBYDALLAR"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 22
+
+inputBox.Parent = main
+inputBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+inputBox.Position = UDim2.new(0.05, 0, 0.18, 0)
+inputBox.Size = UDim2.new(0.9, 0, 0.5, 0)
+inputBox.Font = Enum.Font.Code
+inputBox.Text = ""
+inputBox.TextColor3 = Color3.fromRGB(200, 255, 200)
+inputBox.TextSize = 15
+inputBox.ClearTextOnFocus = false
+inputBox.MultiLine = true
+
+execButton.Parent = main
+execButton.BackgroundColor3 = Color3.fromRGB(45, 120, 45)
+execButton.Position = UDim2.new(0.05, 0, 0.75, 0)
+execButton.Size = UDim2.new(0.4, 0, 0.15, 0)
+execButton.Font = Enum.Font.GothamBold
+execButton.Text = "Execute"
+execButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+execButton.TextSize = 18
+execButton.MouseButton1Click:Connect(function()
+	status.Text = "Sorry, you're not sigma 😔"
+end)
+
+attachButton.Parent = main
+attachButton.BackgroundColor3 = Color3.fromRGB(120, 45, 45)
+attachButton.Position = UDim2.new(0.55, 0, 0.75, 0)
+attachButton.Size = UDim2.new(0.4, 0, 0.15, 0)
+attachButton.Font = Enum.Font.GothamBold
+attachButton.Text = "Attach"
+attachButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+attachButton.TextSize = 18
+attachButton.MouseButton1Click:Connect(function()
+	status.Text = "Sorry, you're not sigma 😔"
+end)
+
+status.Parent = main
+status.BackgroundTransparency = 1
+status.Position = UDim2.new(0, 0, 0.93, 0)
+status.Size = UDim2.new(1, 0, 0.07, 0)
+status.Font = Enum.Font.Gotham
+status.Text = "Status: Idle | GabbyDallar = Real Sigma"
+status.TextColor3 = Color3.fromRGB(255, 255, 255)
+status.TextSize = 14
+
+task.spawn(function()
+	while true do
+		title.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+		task.wait(0.3)
+	end
+end)
