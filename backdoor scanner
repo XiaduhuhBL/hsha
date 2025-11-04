@@ -1,154 +1,139 @@
 --[[
-WARNING: This script is for educational purposes only. Use at your own risk!
-Ensure compliance with Roblox's Terms of Service before using in any experience.
+	Backdoor Scanner GUI - By Team T00kshaf1y
+	融合了多个扫描器的功能
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local RobloxGui = CoreGui:WaitForChild("RobloxGui")
 
--- 融合后的核心检测规则（整合所有原始脚本的检测模式）
-local detectionPatterns = {
-    -- 远程脚本加载与外部请求
-    "loadstring%s*%(%s*game:HttpGet",
-    "game:HttpGet%s*%(%s*[\"']https?://",
-    "game:HttpPost%s*%(%s*[\"']https?://",
-    -- 可疑资产引用
-    "require%s*%(%s*%d%d%d%d%d%d%d%d%d%d+",
-    -- 危险操作
-    "writefile",
-    "readfile",
-    "syn%.request",
-    "getgenv",
-    "setgenv",
-    -- 隐藏执行逻辑
-    "spawn%s*%(%s*function%s*%(%s*%)%s*while",
-    "coroutine%.wrap%s*%(%s*function%s*%(%s*%)%s*while",
-    "while%s*true%s*do%s*wait%(%d*%.?%d*%)",
-    -- 可疑域名
-    "https?://[^'\"]*%.(tk|xyz|top|cf|ga|ml|pw|cc)/",
-    -- 远程通信对象特征
-    "RemoteEvent",
-    "RemoteFunction",
-    "BindableEvent",
-    "BindableFunction"
-}
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+screenGui.Name = "BackdoorScannerGui"
 
--- 创建主GUI
-local mainGui = Instance.new("ScreenGui")
-mainGui.Name = "BackdoorScanner"
-mainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-mainGui.ResetOnSpawn = false
-mainGui.Parent = RobloxGui
+-- Create Draggable Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 500, 0, 450)
+frame.Position = UDim2.new(0.5, -250, 0.5, -225)
+frame.BackgroundColor3 = Color3.fromRGB(0, 255, 255) -- 青色背景
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
 
--- 主框架（背景青色）
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 500, 0, 400)
-mainFrame.Position = UDim2.new(0.25, 0, 0.2, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 255) -- 青色背景
-mainFrame.BorderSizePixel = 0
-mainFrame.Parent = mainGui
+-- Make Frame Draggable
+local dragging, dragInput, dragStart, startPos
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
 
--- 框架美化
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 8)
-uiCorner.Parent = mainFrame
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(0, 180, 180)
-uiStroke.Thickness = 2
-uiStroke.Parent = mainFrame
-
--- 标题区域
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0, 40)
-titleLabel.Position = UDim2.new(0, 0, 0, 20)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Backdoor scanner"
-titleLabel.TextColor3 = Color3.fromRGB(0, 80, 80)
-titleLabel.Font = Enum.Font.GothamSSm
-titleLabel.FontWeight = Enum.FontWeight.Bold
-titleLabel.TextSize = 28
-titleLabel.TextXAlignment = Enum.TextXAlignment.Center
-titleLabel.Parent = mainFrame
-
--- 作者标签
-local authorLabel = Instance.new("TextLabel")
-authorLabel.Size = UDim2.new(1, 0, 0, 20)
-authorLabel.Position = UDim2.new(0, 0, 0, 60)
-authorLabel.BackgroundTransparency = 1
-authorLabel.Text = "By Team T00kshaf1y"
-authorLabel.TextColor3 = Color3.fromRGB(0, 120, 120)
-authorLabel.Font = Enum.Font.GothamSSm
-authorLabel.TextSize = 16
-authorLabel.TextXAlignment = Enum.TextXAlignment.Center
-authorLabel.Parent = mainFrame
-
--- 输出滚动框
+-- Create ScrollingFrame for Output
 local scrollFrame = Instance.new("ScrollingFrame")
-scrollFrame.Size = UDim2.new(0.9, 0, 0, 220)
-scrollFrame.Position = UDim2.new(0.05, 0, 0, 100)
-scrollFrame.BackgroundColor3 = Color3.fromRGB(245, 255, 255)
-scrollFrame.BorderSizePixel = 0
+scrollFrame.Size = UDim2.new(0.9, 0, 0, 250)
+scrollFrame.Position = UDim2.new(0.05, 0, 0, 160)
+scrollFrame.BackgroundTransparency = 1
 scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 scrollFrame.ScrollBarThickness = 8
-scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 150, 150)
-scrollFrame.Parent = mainFrame
+scrollFrame.Parent = frame
 
-local scrollCorner = Instance.new("UICorner")
-scrollCorner.CornerRadius = UDim.new(0, 4)
-scrollCorner.Parent = scrollFrame
+-- Main Title Label
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Position = UDim2.new(0, 0, 0, 10)
+title.BackgroundTransparency = 1
+title.Text = "BACKDOOR SCANNER"
+title.TextColor3 = Color3.fromRGB(0, 0, 0)
+title.Font = Enum.Font.Code
+title.TextSize = 24
+title.TextStrokeTransparency = 0
+title.Parent = frame
 
--- 功能按钮区域
+-- Subtitle Label
+local subtitle = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 50)
+title.BackgroundTransparency = 1
+title.Text = "By Team T00kshaf1y"
+title.TextColor3 = Color3.fromRGB(0, 0, 0)
+title.Font = Enum.Font.Code
+title.TextSize = 16
+title.TextStrokeTransparency = 0
+title.Parent = frame
+
+-- Status Label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0.9, 0, 0, 30)
+statusLabel.Position = UDim2.new(0.05, 0, 0, 85)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Ready to scan..."
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.Font = Enum.Font.Code
+statusLabel.TextSize = 14
+statusLabel.Parent = frame
+
+-- Scan Button
 local scanButton = Instance.new("TextButton")
-scanButton.Size = UDim2.new(0.4, 0, 0, 35)
-scanButton.Position = UDim2.new(0.05, 0, 0, 330)
-scanButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
+scanButton.Size = UDim2.new(0.45, 0, 0, 40)
+scanButton.Position = UDim2.new(0.05, 0, 0, 120)
+scanButton.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
 scanButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-scanButton.Font = Enum.Font.GothamSSm
-scanButton.FontWeight = Enum.FontWeight.Bold
-scanButton.TextSize = 18
+scanButton.Font = Enum.Font.Code
+scanButton.TextSize = 16
 scanButton.Text = "SCAN"
-scanButton.Parent = mainFrame
+scanButton.Parent = frame
 
-local scanCorner = Instance.new("UICorner")
-scanCorner.CornerRadius = UDim.new(0, 6)
-scanCorner.Parent = scanButton
-
+-- Clear Button
 local clearButton = Instance.new("TextButton")
-clearButton.Size = UDim2.new(0.4, 0, 0, 35)
-clearButton.Position = UDim2.new(0.55, 0, 0, 330)
-clearButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
+clearButton.Size = UDim2.new(0.45, 0, 0, 40)
+clearButton.Position = UDim2.new(0.5, 0, 0, 120)
+clearButton.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
 clearButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-clearButton.Font = Enum.Font.GothamSSm
-clearButton.FontWeight = Enum.FontWeight.Bold
-clearButton.TextSize = 18
+clearButton.Font = Enum.Font.Code
+clearButton.TextSize = 16
 clearButton.Text = "CLEAR"
-clearButton.Parent = mainFrame
+clearButton.Parent = frame
 
-local clearCorner = Instance.new("UICorner")
-clearCorner.CornerRadius = UDim.new(0, 6)
-clearCorner.Parent = clearButton
+-- Admin Button
+local adminButton = Instance.new("TextButton")
+adminButton.Size = UDim2.new(0.9, 0, 0, 40)
+adminButton.Position = UDim2.new(0.05, 0, 0, 420)
+adminButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+adminButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+adminButton.Font = Enum.Font.Code
+adminButton.TextSize = 16
+adminButton.Text = "GRANT ADMIN (IF BACKDOORS FOUND)"
+adminButton.Visible = false
+adminButton.Parent = frame
 
--- 全局状态变量
+-- Output Message List
 local messages = {}
-local messageHeight = 22
-local scannedCount = 0
-local detectedCount = 0
+local messageHeight = 25
+local detectedBackdoors = {}
 
--- 输出消息函数
-local function addMessage(text, color)
+local function addMessage(text, color, isKey)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -10, 0, messageHeight)
     label.Position = UDim2.new(0, 5, 0, #messages * messageHeight)
     label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = color or Color3.fromRGB(0, 80, 80)
+    label.Text = "  " .. text
+    label.TextColor3 = color or Color3.fromRGB(255, 255, 255)
     label.Font = Enum.Font.Code
-    label.TextSize = 14
+    label.TextSize = 12
     label.TextWrapped = true
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = scrollFrame
@@ -157,99 +142,200 @@ local function addMessage(text, color)
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #messages * messageHeight)
 end
 
--- 清空消息函数
+-- Clear Messages
 local function clearMessages()
     for _, msg in ipairs(messages) do
         msg:Destroy()
     end
     messages = {}
-    scannedCount = 0
-    detectedCount = 0
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    addMessage("Logs cleared successfully", Color3.fromRGB(0, 150, 150))
+    adminButton.Visible = false
+    detectedBackdoors = {}
+    statusLabel.Text = "Ready to scan..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
--- 核心扫描函数
-local function scanForThreats()
-    clearMessages()
-    addMessage("Starting full scan...", Color3.fromRGB(0, 180, 0))
+-- Enhanced Backdoor Patterns
+local patterns = {
+    -- Remote execution patterns
+    "loadstring%s*%(%s*game:HttpGet",
+    "game:HttpGet%s*%(%s*[\"']https?://",
+    "require%s*%(%s*%d%d%d%d%d%d%d%d%d%d+",
+    "writefile",
+    "syn%.request",
+    "spawn%s*%(%s*function%s*%(%s*%)%s*while",
+    "https?://[^'\"]*%.(tk|xyz|top|cf|ga|ml)/",
     
-    local servicesToScan = {
-        game:GetService("Workspace"),
-        ReplicatedStorage,
-        game:GetService("StarterGui"),
-        game:GetService("StarterPack"),
-        game:GetService("StarterPlayerScripts"),
-        game:GetService("SoundService"),
-        game:GetService("Lighting")
-    }
+    -- Common backdoor indicators
+    "FireServer",
+    "InvokeServer",
+    "RemoteEvent",
+    "RemoteFunction",
+    "BindableEvent",
+    "BindableFunction",
+    
+    -- Suspicious commands
+    "admin",
+    "kick",
+    "ban",
+    "crash",
+    "shutdown",
+    "execute",
+    "script",
+    
+    -- Data stealing patterns
+    "getcookie",
+    "setclipboard",
+    "readfile",
+    "delfile",
+    "listfiles"
+}
 
-    for _, service in ipairs(servicesToScan) do
-        for _, obj in ipairs(service:GetDescendants()) do
-            if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
-                scannedCount += 1
-                local source = ""
-                pcall(function() source = obj.Source or "" end)
-
-                if source ~= "" then
-                    local lineNum = 0
-                    for line in source:gmatch("[^\n]+") do
-                        lineNum += 1
-                        for _, pattern in ipairs(detectionPatterns) do
-                            if line:find(pattern) then
-                                detectedCount += 1
-                                addMessage(
-                                    string.format("[THREAT] %s (Line %d) | Pattern: %s", 
-                                    obj:GetFullName(), lineNum, pattern),
-                                    Color3.fromRGB(255, 0, 0)
-                                )
-                                break
-                            end
+-- Enhanced Scanning Function
+local function scanForBackdoors()
+    statusLabel.Text = "SCANNING... Please wait"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    
+    addMessage("=== BACKDOOR SCANNER STARTED ===", Color3.fromRGB(0, 255, 255))
+    addMessage("Scanning all game objects...", Color3.fromRGB(255, 255, 255))
+    
+    local foundCount = 0
+    local scannedCount = 0
+    
+    -- Scan all descendants
+    for _, obj in ipairs(game:GetDescendants()) do
+        scannedCount = scannedCount + 1
+        
+        -- Check object names for suspicious patterns
+        local objName = obj.Name:lower()
+        local suspiciousNames = {"backdoor", "admin", "execute", "script", "remote", "hidden", "secret"}
+        
+        for _, suspicious in ipairs(suspiciousNames) do
+            if objName:find(suspicious) then
+                foundCount = foundCount + 1
+                addMessage(string.format("SUSPICIOUS NAME: %s", obj:GetFullName()), Color3.fromRGB(255, 165, 0))
+                table.insert(detectedBackdoors, {obj = obj, type = "suspicious_name"})
+                break
+            end
+        end
+        
+        -- Check scripts for malicious code
+        if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+            local success, src = pcall(function()
+                return obj.Source or ""
+            end)
+            
+            if success and src ~= "" then
+                local lineNum = 0
+                for line in src:gmatch("[^\n]+") do
+                    lineNum = lineNum + 1
+                    for _, pattern in ipairs(patterns) do
+                        if line:find(pattern) then
+                            foundCount = foundCount + 1
+                            addMessage(string.format("MALICIOUS CODE: %s | Line %d", obj:GetFullName(), lineNum), Color3.fromRGB(255, 0, 0))
+                            addMessage("   Pattern: " .. pattern, Color3.fromRGB(255, 100, 100))
+                            addMessage("   Code: " .. line:sub(1, 80), Color3.fromRGB(200, 200, 200))
+                            table.insert(detectedBackdoors, {obj = obj, type = "malicious_code", pattern = pattern})
+                            break
                         end
                     end
                 end
             end
         end
+        
+        -- Check for remote objects
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            foundCount = foundCount + 1
+            addMessage(string.format("REMOTE OBJECT: %s", obj:GetFullName()), Color3.fromRGB(255, 255, 0))
+            table.insert(detectedBackdoors, {obj = obj, type = "remote_object"})
+        end
     end
-
-    -- 扫描结果汇总
-    addMessage(string.format("\nScan complete: %d scripts scanned", scannedCount), Color3.fromRGB(0, 180, 0))
-    if detectedCount == 0 then
-        addMessage("STATUS: No threats detected - Safe!", Color3.fromRGB(0, 200, 0))
+    
+    -- Scan core game services
+    local services = {
+        ReplicatedStorage,
+        game:GetService("Workspace"),
+        game:GetService("Lighting"),
+        game:GetService("StarterPack"),
+        game:GetService("StarterGui"),
+        game:GetService("StarterPlayer")
+    }
+    
+    for _, service in ipairs(services) do
+        addMessage(string.format("Scanning service: %s", service.Name), Color3.fromRGB(100, 100, 255))
+    end
+    
+    -- Final results
+    addMessage("=== SCAN COMPLETE ===", Color3.fromRGB(0, 255, 255))
+    
+    if foundCount == 0 then
+        addMessage("✅ NO BACKDOORS DETECTED", Color3.fromRGB(0, 255, 0))
+        statusLabel.Text = "SCAN COMPLETE - NO THREATS FOUND"
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
     else
-        addMessage(string.format("STATUS: %d threat(s) detected - Remove immediately!", detectedCount), Color3.fromRGB(255, 0, 0))
+        addMessage(string.format("🚨 %d POTENTIAL THREATS DETECTED!", foundCount), Color3.fromRGB(255, 0, 0))
+        statusLabel.Text = string.format("SCAN COMPLETE - %d THREATS FOUND", foundCount)
+        statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        adminButton.Visible = true
     end
+    
+    addMessage(string.format("Scanned %d objects total", scannedCount), Color3.fromRGB(200, 200, 200))
 end
 
--- 按钮绑定
-scanButton.MouseButton1Click:Connect(scanForThreats)
-clearButton.MouseButton1Click:Connect(clearMessages)
-
--- 窗口拖拽功能
-local dragging, dragStart, startPos = false, nil, nil
-mainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
+-- Admin Access Function
+local function attemptAdminAccess()
+    addMessage("=== ATTEMPTING ADMIN ACCESS ===", Color3.fromRGB(255, 165, 0))
+    
+    for _, backdoor in ipairs(detectedBackdoors) do
+        local obj = backdoor.obj
+        
+        if obj:IsA("RemoteEvent") then
+            local commands = {
+                "admin " .. Players.LocalPlayer.Name,
+                "giveadmin " .. Players.LocalPlayer.Name,
+                "promote " .. Players.LocalPlayer.Name,
+                "makeadmin " .. Players.LocalPlayer.Name,
+                "!admin " .. Players.LocalPlayer.Name
+            }
+            
+            for _, cmd in ipairs(commands) do
+                pcall(function()
+                    obj:FireServer(cmd)
+                    addMessage("Fired command: " .. cmd, Color3.fromRGB(0, 255, 0))
+                end)
             end
-        end)
+        elseif obj:IsA("RemoteFunction") then
+            local commands = {
+                "admin " .. Players.LocalPlayer.Name,
+                "giveadmin " .. Players.LocalPlayer.Name
+            }
+            
+            for _, cmd in ipairs(commands) do
+                pcall(function()
+                    obj:InvokeServer(cmd)
+                    addMessage("Invoked command: " .. cmd, Color3.fromRGB(0, 255, 0))
+                end)
+            end
+        end
     end
-end)
+    
+    addMessage("Admin access attempts completed", Color3.fromRGB(255, 165, 0))
+end
 
-mainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-        local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
-    end
-end)
+-- Button Connections
+scanButton.MouseButton1Click:Connect(scanForBackdoors)
+clearButton.MouseButton1Click:Connect(clearMessages)
+adminButton.MouseButton1Click:Connect(attemptAdminAccess)
 
--- 初始化消息
-addMessage("Welcome to Backdoor Scanner", Color3.fromRGB(0, 120, 120))
-addMessage("Click to scan", Color3.fromRGB(0, 120, 120))
+-- Add rounded corners
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = frame
+
+-- Add initial message
+addMessage("Backdoor Scanner by Team T00kshaf1y", Color3.fromRGB(0, 255, 255))
+addMessage("Click SCAN to begin detection", Color3.fromRGB(255, 255, 255))
+addMessage("", Color3.fromRGB(255, 255, 255))
+
+print("Backdoor Scanner GUI loaded successfully!")
+print("By Team T00kshaf1y")
