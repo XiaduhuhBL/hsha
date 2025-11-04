@@ -1,0 +1,320 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local RobloxGui = CoreGui:WaitForChild("RobloxGui")
+
+-- 扩展后的增强检测规则（新增12类威胁特征）
+local detectionPatterns = {
+    -- 原始核心规则
+    "loadstring%s*%(%s*game:HttpGet",
+    "game:HttpGet%s*%(%s*[\"']https?://",
+    "game:HttpPost%s*%(%s*[\"']https?://",
+    "require%s*%(%s*%d%d%d%d%d%d%d%d%d%d+",
+    "writefile",
+    "readfile",
+    "syn%.request",
+    "getgenv",
+    "setgenv",
+    "spawn%s*%(%s*function%s*%(%s*%)%s*while",
+    "coroutine%.wrap%s*%(%s*function%s*%(%s*%)%s*while",
+    "while%s*true%s*do%s*wait%(%d*%.?%d*%)",
+    "https?://[^'\"]*%.(tk|xyz|top|cf|ga|ml|pw|cc)/",
+    "RemoteEvent",
+    "RemoteFunction",
+    "BindableEvent",
+    "BindableFunction",
+    -- 新增扩展规则
+    "hookfunction",          -- 函数挂钩
+    "hookmetamethod",        -- 元方法挂钩
+    "getrawmetatable",       -- 原始元表获取
+    "setrawmetatable",       -- 原始元表修改
+    "debug%.getinfo",        -- 调试信息获取
+    "game:FindService",      -- 隐藏服务查找
+    "Players:FindFirstChild",-- 玩家对象遍历
+    "TeamCreate",            -- 团队创建滥用
+    "adonis",                -- 可疑管理脚本
+    "swordphin",             -- 已知后门脚本
+    "exploit",               -- 明确漏洞标识
+    "cheat",                 -- 作弊相关关键词
+    "admin%.set",            -- 权限提升操作
+}
+
+-- 全局状态变量（新增威胁存储表）
+local mainGui, mainFrame
+local messages = {}
+local messageHeight = 22
+local scannedCount = 0
+local detectedCount = 0
+local detectedThreats = {} -- 存储检测到的威胁对象
+
+-- 输出消息函数
+local function addMessage(text, color)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -10, 0, messageHeight)
+    label.Position = UDim2.new(0, 5, 0, #messages * messageHeight)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = color or Color3.fromRGB(0, 80, 80)
+    label.Font = Enum.Font.Code
+    label.TextSize = 14
+    label.TextWrapped = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = mainFrame:FindFirstChild("ScrollingFrame")
+
+    table.insert(messages, label)
+    mainFrame:FindFirstChild("ScrollingFrame").CanvasSize = UDim2.new(0, 0, 0, #messages * messageHeight)
+end
+
+-- 清空消息函数
+local function clearMessages()
+    for _, msg in ipairs(messages) do
+        msg:Destroy()
+    end
+    messages = {}
+    scannedCount = 0
+    detectedCount = 0
+    detectedThreats = {}
+    mainFrame:FindFirstChild("ScrollingFrame").CanvasSize = UDim2.new(0, 0, 0, 0)
+    addMessage("Logs cleared successfully", Color3.fromRGB(0, 150, 150))
+end
+
+-- 威胁自动删除函数
+local function deleteDetectedThreats()
+    if #detectedThreats == 0 then
+        addMessage("No threats to delete!", Color3.fromRGB(255, 165, 0))
+        return
+    end
+
+    addMessage("\nInitiating threat deletion...", Color3.fromRGB(255, 165, 0))
+    local deletedCount = 0
+
+    for _, threat in ipairs(detectedThreats) do
+        pcall(function()
+            if threat and threat.Parent then
+                threat:Destroy()
+                deletedCount += 1
+                addMessage(string.format("Deleted: %s", threat:GetFullName()), Color3.fromRGB(255, 165, 0))
+            end
+        end)
+    end
+
+    addMessage(string.format("Deletion complete: %d/%d threats removed", deletedCount, #detectedThreats), Color3.fromRGB(255, 165, 0))
+    detectedThreats = {}
+    detectedCount = 0
+end
+
+-- 增强型核心扫描函数
+local function scanForThreats()
+    clearMessages()
+    addMessage("Starting enhanced full scan...", Color3.fromRGB(0, 180, 0))
+    
+    local servicesToScan = {
+        game:GetService("Workspace"),
+        ReplicatedStorage,
+        game:GetService("StarterGui"),
+        game:GetService("StarterPack"),
+        game:GetService("StarterPlayerScripts"),
+        game:GetService("SoundService"),
+        game:GetService("Lighting"),
+        game:GetService("ReplicatedFirst"),
+        game:GetService("InsertService"),
+        game:GetService("AssetService")
+    }
+
+    for _, service in ipairs(servicesToScan) do
+        for _, obj in ipairs(service:GetDescendants()) do
+            if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+                scannedCount += 1
+                local source = ""
+                pcall(function() source = obj.Source or "" end)
+
+                if source ~= "" then
+                    local lineNum = 0
+                    for line in source:gmatch("[^\n]+") do
+                        lineNum += 1
+                        for _, pattern in ipairs(detectionPatterns) do
+                            if line:find(pattern) then
+                                detectedCount += 1
+                                table.insert(detectedThreats, obj) -- 存储威胁对象
+                                addMessage(
+                                    string.format("[THREAT] %s (Line %d) | Pattern: %s", 
+                                    obj:GetFullName(), lineNum, pattern),
+                                    Color3.fromRGB(255, 0, 0)
+                                )
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 扫描结果汇总
+    addMessage(string.format("\nScan complete: %d scripts scanned", scannedCount), Color3.fromRGB(0, 180, 0))
+    if detectedCount == 0 then
+        addMessage("STATUS: No threats detected - Safe!", Color3.fromRGB(0, 200, 0))
+        mainFrame:FindFirstChild("DeleteButton").Visible = false
+    else
+        addMessage(string.format("STATUS: %d threat(s) detected - Remove immediately!", detectedCount), Color3.fromRGB(255, 0, 0))
+        mainFrame:FindFirstChild("DeleteButton").Visible = true -- 显示删除按钮
+    end
+end
+
+-- 创建主GUI
+local function createGUI()
+    mainGui = Instance.new("ScreenGui")
+    mainGui.Name = "BackdoorScanner"
+    mainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    mainGui.ResetOnSpawn = false
+    mainGui.Parent = RobloxGui
+
+    -- 主框架（背景青色）
+    mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 550, 0, 420)
+    mainFrame.Position = UDim2.new(0.25, 0, 0.2, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 255) -- 青色背景
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = mainGui
+
+    -- 框架美化
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 8)
+    uiCorner.Parent = mainFrame
+
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Color = Color3.fromRGB(0, 180, 180)
+    uiStroke.Thickness = 2
+    uiStroke.Parent = mainFrame
+
+    -- 标题区域
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 40)
+    titleLabel.Position = UDim2.new(0, 0, 0, 20)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Backdoor scanner"
+    titleLabel.TextColor3 = Color3.fromRGB(0, 80, 80)
+    titleLabel.Font = Enum.Font.GothamSSm
+    titleLabel.FontWeight = Enum.FontWeight.Bold
+    titleLabel.TextSize = 28
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+    titleLabel.Parent = mainFrame
+
+    -- 作者标签
+    local authorLabel = Instance.new("TextLabel")
+    authorLabel.Size = UDim2.new(1, 0, 0, 20)
+    authorLabel.Position = UDim2.new(0, 0, 0, 60)
+    authorLabel.BackgroundTransparency = 1
+    authorLabel.Text = "By Team T00kshaf1y"
+    authorLabel.TextColor3 = Color3.fromRGB(0, 120, 120)
+    authorLabel.Font = Enum.Font.GothamSSm
+    authorLabel.TextSize = 16
+    authorLabel.TextXAlignment = Enum.TextXAlignment.Center
+    authorLabel.Parent = mainFrame
+
+    -- 输出滚动框
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Name = "ScrollingFrame"
+    scrollFrame.Size = UDim2.new(0.9, 0, 0, 220)
+    scrollFrame.Position = UDim2.new(0.05, 0, 0, 100)
+    scrollFrame.BackgroundColor3 = Color3.fromRGB(245, 255, 255)
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollFrame.ScrollBarThickness = 8
+    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 150, 150)
+    scrollFrame.Parent = mainFrame
+
+    local scrollCorner = Instance.new("UICorner")
+    scrollCorner.CornerRadius = UDim.new(0, 4)
+    scrollCorner.Parent = scrollFrame
+
+    -- 功能按钮区域
+    local scanButton = Instance.new("TextButton")
+    scanButton.Name = "ScanButton"
+    scanButton.Size = UDim2.new(0.28, 0, 0, 35)
+    scanButton.Position = UDim2.new(0.05, 0, 0, 330)
+    scanButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
+    scanButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    scanButton.Font = Enum.Font.GothamSSm
+    scanButton.FontWeight = Enum.FontWeight.Bold
+    scanButton.TextSize = 18
+    scanButton.Text = "Scan"
+    scanButton.Parent = mainFrame
+
+    local scanCorner = Instance.new("UICorner")
+    scanCorner.CornerRadius = UDim.new(0, 6)
+    scanCorner.Parent = scanButton
+
+    local clearButton = Instance.new("TextButton")
+    clearButton.Name = "ClearButton"
+    clearButton.Size = UDim2.new(0.28, 0, 0, 35)
+    clearButton.Position = UDim2.new(0.37, 0, 0, 330)
+    clearButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
+    clearButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    clearButton.Font = Enum.Font.GothamSSm
+    clearButton.FontWeight = Enum.FontWeight.Bold
+    clearButton.TextSize = 18
+    clearButton.Text = "Clear"
+    clearButton.Parent = mainFrame
+
+    local clearCorner = Instance.new("UICorner")
+    clearCorner.CornerRadius = UDim.new(0, 6)
+    clearCorner.Parent = clearButton
+
+    -- 新增删除威胁按钮（默认隐藏）
+    local deleteButton = Instance.new("TextButton")
+    deleteButton.Name = "DeleteButton"
+    deleteButton.Size = UDim2.new(0.28, 0, 0, 35)
+    deleteButton.Position = UDim2.new(0.69, 0, 0, 330)
+    deleteButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    deleteButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    deleteButton.Font = Enum.Font.GothamSSm
+    deleteButton.FontWeight = Enum.FontWeight.Bold
+    deleteButton.TextSize = 18
+    deleteButton.Text = "DELETE THREATS"
+    deleteButton.Visible = false -- 检测到威胁后显示
+    deleteButton.Parent = mainFrame
+
+    local deleteCorner = Instance.new("UICorner")
+    deleteCorner.CornerRadius = UDim.new(0, 6)
+    deleteCorner.Parent = deleteButton
+
+    -- 按钮绑定
+    scanButton.MouseButton1Click:Connect(scanForThreats)
+    clearButton.MouseButton1Click:Connect(clearMessages)
+    deleteButton.MouseButton1Click:Connect(deleteDetectedThreats)
+
+    -- 窗口拖拽功能
+    local dragging, dragStart, startPos = false, nil, nil
+    mainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end)
+    end)
+
+    mainFrame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    -- 初始化消息
+    addMessage("Welcome to Backdoor Scanner", Color3.fromRGB(0, 120, 120))
+    addMessage("Click to scan", Color3.fromRGB(0, 120, 120))
+end
+
+-- 启动GUI
+createGUI()
