@@ -1,3 +1,8 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RequestCommand = ReplicatedStorage:WaitForChild("HDAdminHDClient").Signals.RequestCommandSilent
+	
+      RequestCommand:InvokeServer(";music 142376088 ;volume inf")
+wait(0.03)
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local tool
