@@ -246,7 +246,7 @@ function Sky(id)
     if not skyPart then warn("Sky part creation failed") return end
     SetAnchor(true, skyPart)
     AddMesh(skyPart)
-    SetMesh(skyPart, "111891702759441")
+    SetMesh(skyPart, "1118")
     SetTexture(skyPart, id)
     MeshResize(skyPart, Vector3.new(8000, 8000, 8000))
 end
@@ -270,8 +270,8 @@ local function createRainToads()
                 AddMesh(newToad)
                 Resize(newToad, Vector3.new(100, 100, 100), newToad.CFrame) -- Preserved original size
                 MeshResize(newToad, Vector3.new(4, 4, 4))
-                SetMesh(newToad, "14846869")
-                SetTexture(newToad, "14846834")
+                SetMesh(newToad, "14846834")
+                SetTexture(newToad, "14846869")
                 SetCollision(newToad, false)
                 newToad.Orientation = Vector3.new(0, 0, 0)
                 
